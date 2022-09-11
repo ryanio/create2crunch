@@ -317,76 +317,79 @@ pub fn cpu(config: Config) -> Result<(), Box<dyn Error>> {
                     let address_hex_string = hex::encode(&address_bytes);
                     let address = format!("{}", &address_hex_string);
 
-                    // get the full salt used to create the address
-                    let header_hex_string = hex::encode(&header_vec);
-                    let body_hex_string = hex::encode(salt_incremented_segment
-                                                        .to_vec());
-                    let full_salt = format!(
-                      "0x{}{}",
-                      &header_hex_string[42..],
-                      &body_hex_string
-                    );
+                    // only proceed if the address contains our desired string
+                    if address.trim_start_matches('0').starts_with("5ea0") {
+                        // get the full salt used to create the address
+                        let header_hex_string = hex::encode(&header_vec);
+                        let body_hex_string = hex::encode(salt_incremented_segment
+                                                            .to_vec());
+                        let full_salt = format!(
+                        "0x{}{}",
+                        &header_hex_string[42..],
+                        &body_hex_string
+                        );
 
-                    // encode address and set up a variable for the checksum
-                    let address_encoded = address.as_bytes();
-                    let mut checksum_address = "0x".to_string();
+                        // encode address and set up a variable for the checksum
+                        let address_encoded = address.as_bytes();
+                        let mut checksum_address = "0x".to_string();
 
-                    // create new hash object for computing the checksum
-                    let mut checksum_hash = Keccak::new_keccak256();
+                        // create new hash object for computing the checksum
+                        let mut checksum_hash = Keccak::new_keccak256();
 
-                    // update with utf8-encoded address (total: 20 bytes)
-                    checksum_hash.update(&address_encoded);
+                        // update with utf8-encoded address (total: 20 bytes)
+                        checksum_hash.update(&address_encoded);
 
-                    // hash the payload and get the result
-                    let mut checksum_res: [u8; 32] = [0; 32];
-                    checksum_hash.finalize(&mut checksum_res);
-                    let address_hash = hex::encode(checksum_res);
+                        // hash the payload and get the result
+                        let mut checksum_res: [u8; 32] = [0; 32];
+                        checksum_hash.finalize(&mut checksum_res);
+                        let address_hash = hex::encode(checksum_res);
 
-                    // compute the address checksum using the above hash
-                    for nibble in 0..address.len() {
-                        let hash_character = i64::from_str_radix(
-                          &address_hash
-                            .chars()
-                            .nth(nibble)
-                            .unwrap()
-                            .to_string(),
-                          16
-                        ).unwrap();
-                        let character = address.chars().nth(nibble).unwrap();
-                        if hash_character > 7 {
-                            checksum_address = format!(
-                              "{}{}",
-                              checksum_address,
-                              character.to_uppercase().to_string()
-                            );
-                        } else {
-                            checksum_address = format!(
-                              "{}{}",
-                              checksum_address,
-                              character.to_string()
-                            );
+                        // compute the address checksum using the above hash
+                        for nibble in 0..address.len() {
+                            let hash_character = i64::from_str_radix(
+                            &address_hash
+                                .chars()
+                                .nth(nibble)
+                                .unwrap()
+                                .to_string(),
+                            16
+                            ).unwrap();
+                            let character = address.chars().nth(nibble).unwrap();
+                            if hash_character > 7 {
+                                checksum_address = format!(
+                                "{}{}",
+                                checksum_address,
+                                character.to_uppercase().to_string()
+                                );
+                            } else {
+                                checksum_address = format!(
+                                "{}{}",
+                                checksum_address,
+                                character.to_string()
+                                );
+                            }
                         }
+
+                        // display the salt and the address.
+                        let output = format!(
+                        "{} => {} => {}",
+                        full_salt,
+                        checksum_address,
+                        reward_amount
+                        );
+                        println!("{}", &output);
+
+                        // create a lock on the file before writing
+                        file.lock_exclusive().expect("Couldn't lock file.");
+
+                        // write the result to file
+                        writeln!(&file, "{}", &output).expect(
+                        "Couldn't write to `efficient_addresses.txt` file."
+                        );
+
+                        // release the file lock
+                        file.unlock().expect("Couldn't unlock file.")
                     }
-
-                    // display the salt and the address.
-                    let output = format!(
-                      "{} => {} => {}",
-                      full_salt,
-                      checksum_address,
-                      reward_amount
-                    );
-                    println!("{}", &output);
-
-                    // create a lock on the file before writing
-                    file.lock_exclusive().expect("Couldn't lock file.");
-
-                    // write the result to file
-                    writeln!(&file, "{}", &output).expect(
-                      "Couldn't write to `efficient_addresses.txt` file."
-                    );
-
-                    // release the file lock
-                    file.unlock().expect("Couldn't unlock file.")
                 }
             }
         });
@@ -722,70 +725,73 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
                 let address_hex_string = hex::encode(&address_bytes);
                 let address = format!("{}", &address_hex_string);
 
-                // encode address and set up a variable for the checksum
-                let address_encoded = address.as_bytes();
-                let mut checksum_address = "0x".to_string();
+                // only proceed if the address contains our desired string
+                if address.trim_start_matches('0').starts_with("5ea0") {
+                    // encode address and set up a variable for the checksum
+                    let address_encoded = address.as_bytes();
+                    let mut checksum_address = "0x".to_string();
 
-                // create new hash object for computing the checksum
-                let mut checksum_hash = Keccak::new_keccak256();
+                    // create new hash object for computing the checksum
+                    let mut checksum_hash = Keccak::new_keccak256();
 
-                // update with utf8-encoded address (total: 20 bytes)
-                checksum_hash.update(&address_encoded);
+                    // update with utf8-encoded address (total: 20 bytes)
+                    checksum_hash.update(&address_encoded);
 
-                // hash the payload and get the result
-                let mut checksum_res: [u8; 32] = [0; 32];
-                checksum_hash.finalize(&mut checksum_res);
-                let address_hash = hex::encode(checksum_res);
+                    // hash the payload and get the result
+                    let mut checksum_res: [u8; 32] = [0; 32];
+                    checksum_hash.finalize(&mut checksum_res);
+                    let address_hash = hex::encode(checksum_res);
 
-                // compute the checksum using the above hash
-                for nibble in 0..address.len() {
-                    let hash_character = i64::from_str_radix(
-                      &address_hash
-                        .chars()
-                        .nth(nibble)
-                        .unwrap()
-                        .to_string(),
-                      16
-                    ).unwrap();
-                    let character = address.chars().nth(nibble).unwrap();
-                    if hash_character > 7 {
-                        checksum_address = format!(
-                          "{}{}",
-                          checksum_address,
-                          character.to_uppercase().to_string()
-                        );
-                    } else {
-                        checksum_address = format!(
-                          "{}{}",
-                          checksum_address,
-                          character.to_string()
-                        );
+                    // compute the checksum using the above hash
+                    for nibble in 0..address.len() {
+                        let hash_character = i64::from_str_radix(
+                        &address_hash
+                            .chars()
+                            .nth(nibble)
+                            .unwrap()
+                            .to_string(),
+                        16
+                        ).unwrap();
+                        let character = address.chars().nth(nibble).unwrap();
+                        if hash_character > 7 {
+                            checksum_address = format!(
+                            "{}{}",
+                            checksum_address,
+                            character.to_uppercase().to_string()
+                            );
+                        } else {
+                            checksum_address = format!(
+                            "{}{}",
+                            checksum_address,
+                            character.to_string()
+                            );
+                        }
                     }
+
+                    let reward_amount = rewards.get(&key);
+
+                    let output = format!(
+                    "0x{}{}{} => {} => {}",
+                    hex::encode(&caller),
+                    hex::encode(&salt),
+                    hex::encode(&solution),
+                    checksum_address,
+                    reward_amount
+                    );
+
+                    let show = format!("{} ({} / {})", &output, &leading, &total);
+                    let next_found = vec![show.to_string()];
+                    found_list.extend(next_found);
+
+                    file.lock_exclusive().expect("Couldn't lock file.");
+
+                    writeln!(&file, "{}", &output).expect(
+                    "Couldn't write to `efficient_addresses.txt` file."
+                    );
+
+                    file.unlock().expect("Couldn't unlock file.");
+                    found = found + 1;
                 }
-
-                let reward_amount = rewards.get(&key);
-
-                let output = format!(
-                  "0x{}{}{} => {} => {}",
-                  hex::encode(&caller),
-                  hex::encode(&salt),
-                  hex::encode(&solution),
-                  checksum_address,
-                  reward_amount
-                );
-
-                let show = format!("{} ({} / {})", &output, &leading, &total);
-                let next_found = vec![show.to_string()];
-                found_list.extend(next_found);
-
-                file.lock_exclusive().expect("Couldn't lock file.");
-
-                writeln!(&file, "{}", &output).expect(
-                  "Couldn't write to `efficient_addresses.txt` file."
-                );
-
-                file.unlock().expect("Couldn't unlock file.");
-                found = found + 1;
             }
         });
     }
