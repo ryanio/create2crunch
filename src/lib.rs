@@ -507,8 +507,8 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             // get the address that results from the hash
             let address = <&Address>::try_from(&res[12..]).unwrap();
 
-            let address_string = address.to_string().to_lowercase();
-            if !address_string.starts_with("0x5ea00") && !address_string.contains("005ea") {
+            let address_string = address.to_string();
+            if !address_string.starts_with("0x5EA00") && !address_string.contains("005EA") {
                 continue;
             }
 
