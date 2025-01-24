@@ -508,7 +508,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             let address = <&Address>::try_from(&res[12..]).unwrap();
 
             let address_string = address.to_string();
-            if !address_string.starts_with("0x5EA00") && !address_string.contains("005EA") {
+            if !address_string.starts_with("0x5EA00") {
                 continue;
             }
 
