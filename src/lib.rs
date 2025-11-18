@@ -507,7 +507,20 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             // get the address that results from the hash
             let address = <&Address>::try_from(&res[12..]).unwrap();
 
-            if !address.to_string().starts_with("0x5EA00") {
+            // Filter to only keep addresses whose EIP-55 checksummed representation:
+            //   - starts with "5EA"
+            //   - has at least one '0' directly after that prefix (e.g. "5EA0...", "5EA000...")
+            let addr_str = address.to_string();
+            let checksum = addr_str.strip_prefix("0x").unwrap_or(&addr_str);
+            if !checksum.starts_with("5EA") {
+                continue;
+            }
+            let zeros_after = checksum
+                .chars()
+                .skip(3)
+                .take_while(|&c| c == '0')
+                .count();
+            if zeros_after == 0 {
                 continue;
             }
 
@@ -534,7 +547,9 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
                 reward,
             );
 
-            let show = format!("{output} ({leading} / {total})");
+            // Include bytes-based efficiency metrics and the number of zeros
+            // immediately following "5EA" in the checksummed address.
+            let show = format!("{output} ({leading} / {total}, zeros_after_5EA={zeros_after})");
             found_list.push(show.to_string());
 
             file.lock_exclusive().expect("Couldn't lock file.");
