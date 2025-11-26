@@ -507,11 +507,15 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             // get the address that results from the hash
             let address = <&Address>::try_from(&res[12..]).unwrap();
 
-            // Filter to only keep addresses whose EIP-55 checksummed representation:
+            // Filter to only keep addresses whose *EIP-55 checksummed* representation:
             //   - starts with "5EA"
             //   - has at least one '0' directly after that prefix (e.g. "5EA0...", "5EA000...")
+            //
+            // NOTE: `Address::to_string()` does not return an EIP-55 checksum, so we must
+            // compute it ourselves from the lowercase hex form.
             let addr_str = address.to_string();
-            let checksum = addr_str.strip_prefix("0x").unwrap_or(&addr_str);
+            let hex_str = addr_str.strip_prefix("0x").unwrap_or(&addr_str);
+            let checksum = eip55_checksum(hex_str);
             if !checksum.starts_with("5EA") {
                 continue;
             }
@@ -560,6 +564,34 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             found += 1;
         }
     }
+}
+
+/// Compute the EIP-55 checksummed hex (no `0x` prefix) for a 40-character
+/// lowercase hex address string.
+fn eip55_checksum(addr_hex: &str) -> String {
+    // EIP-55 specifies that the checksum is computed over the lowercase hex.
+    let addr_hex = addr_hex.to_ascii_lowercase();
+
+    // Hash the lowercase address using Keccak-256.
+    let mut hasher = Keccak::v256();
+    hasher.update(addr_hex.as_bytes());
+    let mut hash = [0u8; 32];
+    hasher.finalize(&mut hash);
+
+    // Apply the checksum casing rules.
+    let mut result = String::with_capacity(addr_hex.len());
+    for (i, c) in addr_hex.chars().enumerate() {
+        let byte = hash[i / 2];
+        let nibble = if i % 2 == 0 { byte >> 4 } else { byte & 0x0f };
+
+        if c.is_ascii_alphabetic() && nibble >= 8 {
+            result.push(c.to_ascii_uppercase());
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 #[track_caller]
