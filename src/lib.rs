@@ -508,18 +508,23 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             let address = <&Address>::try_from(&res[12..]).unwrap();
 
             // Filter to only keep addresses whose *EIP-55 checksummed* representation:
-            //   - starts with "5EA"
-            //   - has at least one '0' directly after that prefix (e.g. "5EA0...", "5EA000...")
+            //   - has optional leading zeros, then "5EA"
+            //   - has at least one '0' directly after that prefix (e.g. "5EA0...", "05EA0...", "005EA000...")
             //
             // NOTE: `Address::to_string()` does not return an EIP-55 checksum, so we must
             // compute it ourselves from the lowercase hex form.
             let addr_str = address.to_string();
             let hex_str = addr_str.strip_prefix("0x").unwrap_or(&addr_str);
             let checksum = eip55_checksum(hex_str);
-            if !checksum.starts_with("5EA") {
+            
+            // Count leading zeros before "5EA"
+            let leading_zeros = checksum.chars().take_while(|&c| c == '0').count();
+            let after_leading_zeros = &checksum[leading_zeros..];
+            
+            if !after_leading_zeros.starts_with("5EA") {
                 continue;
             }
-            let zeros_after = checksum
+            let zeros_after = after_leading_zeros
                 .chars()
                 .skip(3)
                 .take_while(|&c| c == '0')
@@ -552,8 +557,8 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             );
 
             // Include bytes-based efficiency metrics and the number of zeros
-            // immediately following "5EA" in the checksummed address.
-            let show = format!("{output} ({leading} / {total}, zeros_after_5EA={zeros_after})");
+            // before and after "5EA" in the checksummed address.
+            let show = format!("{output} ({leading} / {total}, zeros_before_5EA={leading_zeros}, zeros_after_5EA={zeros_after})");
             found_list.push(show.to_string());
 
             file.lock_exclusive().expect("Couldn't lock file.");
